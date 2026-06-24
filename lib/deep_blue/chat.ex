@@ -44,7 +44,7 @@ defmodule DeepBlue.Chat do
            |> Session.changeset(attrs)
            |> Repo.insert(),
          :ok <- ensure_stream(session),
-         :ok <- ensure_agent(session) do
+         {:ok, _status} <- ensure_agent(session) do
       {:ok, signal} = Agentic.Signal.SessionCreated.new(%{})
       Jido.AgentServer.cast(DeepBlue.Jido.whereis(session.id), signal)
 
@@ -98,8 +98,25 @@ defmodule DeepBlue.Chat do
       {:error, reason} -> {:error, reason}
     end
     |> case do
-      :ok -> ensure_agent(session)
-      err -> err
+      :ok ->
+        case ensure_agent(session) do
+          {:ok, :started} ->
+            # Agent was newly started for an existing session (e.g., after restart).
+            # Send SessionResumed to restore context: LoadContext → ContextLoaded → LoadTools → ToolsLoaded → idle.
+            # Unlike SessionCreated, this skips session/agent lifecycle event emission.
+            {:ok, signal} = Agentic.Signal.SessionResumed.new(%{})
+            Jido.AgentServer.cast(DeepBlue.Jido.whereis(session.id), signal)
+            :ok
+
+          {:ok, :already_running} ->
+            :ok
+
+          err ->
+            err
+        end
+
+      err ->
+        err
     end
   end
 
@@ -112,12 +129,12 @@ defmodule DeepBlue.Chat do
                id: session.id,
                initial_state: %{session_id: session.id}
              ) do
-          {:ok, _pid} -> :ok
+          {:ok, _pid} -> {:ok, :started}
           {:error, reason} -> {:error, reason}
         end
 
       _pid ->
-        :ok
+        {:ok, :already_running}
     end
   end
 

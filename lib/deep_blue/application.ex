@@ -22,10 +22,12 @@ defmodule DeepBlue.Application do
       DeepBlue.Repo,
       {DNSCluster, query: Application.get_env(:deep_blue, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: DeepBlue.PubSub},
-      Supervisor.child_spec({Phoenix.PubSub, name: DurableStreams.PubSub}, id: DurableStreams.PubSub),
+      Supervisor.child_spec({Phoenix.PubSub, name: DurableStreams.PubSub},
+        id: DurableStreams.PubSub
+      ),
       {Registry, keys: :unique, name: DurableStreams.Registry},
       {DynamicSupervisor, name: DurableStreams.StreamSupervisor, strategy: :one_for_one},
-      DurableStreams.Storage.ETS,
+      durable_streams_storage_child(),
       DeepBlue.Jido,
       DeepBlueWeb.Endpoint
     ]
@@ -38,5 +40,14 @@ defmodule DeepBlue.Application do
   def config_change(changed, _new, removed) do
     DeepBlueWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp durable_streams_storage_child do
+    storage_mod =
+      Application.get_env(:deep_blue, :durable_streams_storage, DurableStreams.Storage.ETS)
+
+    storage_opts = Application.get_env(:deep_blue, storage_mod, [])
+
+    {storage_mod, storage_opts}
   end
 end

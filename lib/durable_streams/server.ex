@@ -20,10 +20,11 @@ defmodule DurableStreams.Server do
   def create(stream_id, opts \\ []) do
     opts = ensure_storage(opts)
 
-    with {:ok, _pid} <- DynamicSupervisor.start_child(
-           DurableStreams.StreamSupervisor,
-           {__MODULE__, {stream_id, opts}}
-         ) do
+    with {:ok, _pid} <-
+           DynamicSupervisor.start_child(
+             DurableStreams.StreamSupervisor,
+             {__MODULE__, {stream_id, opts}}
+           ) do
       {:ok, stream_id}
     else
       {:error, {:already_started, _pid}} -> {:error, :already_exists}
@@ -117,7 +118,14 @@ defmodule DurableStreams.Server do
         {:ok, %__MODULE__{stream_id: stream_id, storage: storage, waiters: []}}
 
       {:error, :already_exists} ->
-        {:stop, :already_exists}
+        # Stream already exists in persistent storage (e.g., after restart).
+        # Load the existing metadata and continue normally.
+        {:ok, existing_stream} = storage.get_metadata(stream_id)
+
+        Phoenix.PubSub.subscribe(DurableStreams.PubSub, "stream:#{stream_id}")
+        schedule_expiration(existing_stream.ttl, existing_stream.expires_at)
+
+        {:ok, %__MODULE__{stream_id: stream_id, storage: storage, waiters: []}}
     end
   end
 
@@ -138,6 +146,7 @@ defmodule DurableStreams.Server do
           "stream:#{state.stream_id}",
           {:stream_append, state.stream_id, offset}
         )
+
         {:reply, result, state}
 
       error ->
@@ -179,6 +188,7 @@ defmodule DurableStreams.Server do
           "stream:#{state.stream_id}",
           {:stream_closed, state.stream_id}
         )
+
         {:reply, result, %{state | waiters: []}}
 
       error ->
@@ -298,7 +308,7 @@ defmodule DurableStreams.Server do
   end
 
   defp default_storage do
-    Application.get_env(:try_honker, :durable_streams_storage, DurableStreams.Storage.ETS)
+    Application.get_env(:deep_blue, :durable_streams_storage, DurableStreams.Storage.ETS)
   end
 
   defp schedule_expiration(ttl, _expires_at) when is_integer(ttl) and ttl > 0 do

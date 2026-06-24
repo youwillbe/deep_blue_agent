@@ -1,5 +1,10 @@
 import Config
 
+# Configure DurableStreams to use CubDB for persistent storage in tests
+config :deep_blue, :durable_streams_storage, DurableStreams.Storage.CubDB
+
+config :deep_blue, DurableStreams.Storage.CubDB,
+  data_dir: "tmp/durable_streams_test"
 
 # Configure your database
 #

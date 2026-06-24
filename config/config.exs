@@ -53,7 +53,8 @@ config :llm_db,
 
 config :deep_blue,
   ecto_repos: [DeepBlue.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  durable_streams_storage: DurableStreams.Storage.ETS
 
 # Configure the endpoint
 config :deep_blue, DeepBlueWeb.Endpoint,

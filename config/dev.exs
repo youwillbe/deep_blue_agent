@@ -1,5 +1,11 @@
 import Config
 
+# Configure DurableStreams to use CubDB for persistent storage
+config :deep_blue, :durable_streams_storage, DurableStreams.Storage.CubDB
+
+config :deep_blue, DurableStreams.Storage.CubDB,
+  data_dir: "priv/durable_streams_data"
+
 # Configure your database
 config :deep_blue, DeepBlue.Repo,
   username: "postgres",

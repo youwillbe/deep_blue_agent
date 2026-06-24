@@ -23,6 +23,7 @@ defmodule Agentic.Agent do
       }),
     signal_routes: [
       {"session.created", Agentic.Action.SessionCreated},
+      {"session.resumed", Agentic.Action.SessionResumed},
       {"agent.started", Agentic.Action.AgentStarted},
       {"user.message.inbound", Agentic.Action.ReceiveUserMessage},
       {"text.received", Agentic.Action.TextReceived},

@@ -24,7 +24,9 @@ defmodule DurableStreams.Retention.Worker do
 
   require Logger
 
-  alias DurableStreams.Storage.ETS, as: Storage
+  defp storage do
+    Application.get_env(:deep_blue, :durable_streams_storage, DurableStreams.Storage.ETS)
+  end
 
   @doc """
   Compacts a stream by removing messages that exceed the retention policy.
@@ -37,7 +39,7 @@ defmodule DurableStreams.Retention.Worker do
   def compact(stream_id) do
     Logger.debug("[Retention] Starting compaction for stream: #{stream_id}")
 
-    with {:ok, stream} <- Storage.get(stream_id),
+    with {:ok, stream} <- storage().get(stream_id),
          {:ok, new_earliest} <- calculate_new_earliest(stream),
          :ok <- perform_compaction(stream_id, stream.earliest_offset, new_earliest) do
       Logger.info("[Retention] Compacted #{stream_id}, new earliest: #{new_earliest}")
@@ -78,14 +80,14 @@ defmodule DurableStreams.Retention.Worker do
       nil ->
         # No compaction yet, check if stream has old messages
         # This requires checking the first message timestamp
-        case Storage.get_first_message_timestamp(stream.id) do
+        case storage().get_first_message_timestamp(stream.id) do
           {:ok, timestamp} -> timestamp < cutoff
           _ -> false
         end
 
       _offset ->
         # Already compacted, check first available message
-        case Storage.get_first_message_timestamp(stream.id) do
+        case storage().get_first_message_timestamp(stream.id) do
           {:ok, timestamp} -> timestamp < cutoff
           _ -> false
         end
@@ -131,7 +133,7 @@ defmodule DurableStreams.Retention.Worker do
 
   defp calculate_earliest_by_age(stream, max_age, now) do
     cutoff = now - max_age
-    Storage.find_offset_after_timestamp(stream.id, cutoff)
+    storage().find_offset_after_timestamp(stream.id, cutoff)
   end
 
   defp calculate_earliest_by_count(_stream, nil), do: nil
@@ -139,7 +141,7 @@ defmodule DurableStreams.Retention.Worker do
   defp calculate_earliest_by_count(stream, max_messages) do
     if stream.message_count > max_messages do
       to_remove = stream.message_count - max_messages
-      Storage.find_offset_after_n_messages(stream.id, to_remove)
+      storage().find_offset_after_n_messages(stream.id, to_remove)
     end
   end
 
@@ -148,15 +150,17 @@ defmodule DurableStreams.Retention.Worker do
   defp calculate_earliest_by_size(stream, max_bytes) do
     if stream.total_bytes > max_bytes do
       target_removal = stream.total_bytes - max_bytes
-      Storage.find_offset_after_n_bytes(stream.id, target_removal)
+      storage().find_offset_after_n_bytes(stream.id, target_removal)
     end
   end
 
   # Perform the actual compaction
   defp perform_compaction(stream_id, _old_earliest, new_earliest) do
     # Delete messages before new_earliest and get stats
-    {:ok, deleted_count, deleted_bytes} = Storage.delete_messages_before(stream_id, new_earliest)
+    {:ok, deleted_count, deleted_bytes} =
+      storage().delete_messages_before(stream_id, new_earliest)
+
     # Update stream metadata
-    Storage.update_after_compaction(stream_id, new_earliest, deleted_count, deleted_bytes)
+    storage().update_after_compaction(stream_id, new_earliest, deleted_count, deleted_bytes)
   end
 end

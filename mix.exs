@@ -42,7 +42,7 @@ defmodule DeepBlue.MixProject do
   defp deps do
     [
       {:tidewave, "~> 0.5", only: [:dev]},
-      
+
 
       {:phoenix, "~> 1.8.5"},
       {:phoenix_ecto, "~> 4.5"},
@@ -62,7 +62,7 @@ defmodule DeepBlue.MixProject do
        app: false,
        compile: false,
        depth: 1},
-      
+
 
       {:req, "~> 0.5"},
       {:telemetry_metrics, "~> 1.0"},
@@ -76,6 +76,7 @@ defmodule DeepBlue.MixProject do
       {:req_llm, "~> 1.14"},
       # Durable Stream
       # {:streamkeeper, "~> 0.3.0"},
+      {:cubdb, "~> 2.0"},
       # utils
       {:uuid_v7, "~> 0.6.0"},
       # debug

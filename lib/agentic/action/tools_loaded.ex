@@ -8,7 +8,16 @@ defmodule Agentic.Action.ToolsLoaded do
   def run(params, ctx) do
     Logger.info("[Action.ToolsLoaded] session=#{ctx.state.session_id}")
 
-    tools_map = Map.new(ctx.state.tools, fn mod -> {mod.name(), mod} end)
+    # ctx.state.tools may be a list of modules (first run) or a name=>module map
+    # (subsequent runs). Normalize to map for idempotent state updates.
+    tools_map =
+      case ctx.state.tools do
+        tools when is_map(tools) ->
+          tools
+
+        tools when is_list(tools) ->
+          Map.new(tools, fn mod -> {mod.name(), mod} end)
+      end
 
     directives =
       if ctx.state.pending_inbox != [] do

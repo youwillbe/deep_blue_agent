@@ -19,7 +19,10 @@ defmodule DurableStreams.Retention.Scheduler do
   require Logger
 
   alias DurableStreams.Retention.Worker
-  alias DurableStreams.Storage.ETS, as: Storage
+
+  defp storage do
+    Application.get_env(:deep_blue, :durable_streams_storage, DurableStreams.Storage.ETS)
+  end
 
   @default_interval :timer.seconds(30)
   @default_max_concurrent 5
@@ -169,6 +172,6 @@ defmodule DurableStreams.Retention.Scheduler do
   end
 
   defp list_streams_with_retention do
-    Storage.list_streams_with_retention()
+    storage().list_streams_with_retention()
   end
 end
